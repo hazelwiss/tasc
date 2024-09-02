@@ -31,12 +31,16 @@ pub fn noop() -> impl Signal {
     Noop
 }
 
-pub fn block_on<F: Future>(mut future: F) -> F::Output {
+pub fn block_on<F: Future>(future: F) -> F::Output {
     #[cfg(feature = "std")]
     let signal = crate::std_impl::Signal::new();
     #[cfg(not(feature = "std"))]
     let signal = noop();
 
+    block_on_with_signal(signal, future)
+}
+
+pub fn block_on_with_signal<F: Future>(signal: impl Signal, mut future: F) -> F::Output {
     let mut future = unsafe { std::pin::Pin::new_unchecked(&mut future) };
 
     let signal = Arc::new(signal);
