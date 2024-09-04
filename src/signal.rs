@@ -1,12 +1,18 @@
 use alloc::sync::Arc;
 use core::{future::Future, task::Context};
 
+/// Provides an abstraction on a signal that is used for the blocking API.
+/// The signal is also used when a type is dropped, because asynchronous drops
+/// are unstable.
 pub trait Signal {
+    /// Awaits the signal to trigger.
     fn wait(&self);
 
+    /// Crates a waker from `[Self]`.
     fn waker(self: Arc<Self>) -> core::task::Waker;
 }
 
+/// Blocks asynchronous code based on a signal.
 pub fn block_on_signal<F: Future>(signal: impl Signal, mut future: F) -> F::Output {
     let mut future = unsafe { core::pin::Pin::new_unchecked(&mut future) };
 

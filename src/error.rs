@@ -18,6 +18,7 @@ impl core::fmt::Debug for StringError {
 
 impl core::error::Error for StringError {}
 
+#[allow(missing_docs)]
 #[derive(Debug)]
 pub struct Error {
     inner: Box<dyn core::error::Error + Send>,
@@ -49,6 +50,7 @@ impl From<Error> for Box<dyn core::error::Error + Send> {
     }
 }
 
+#[allow(missing_docs)]
 pub type Result<T> = core::result::Result<T, Error>;
 
 pub(crate) fn display_error(err: impl Into<String>) -> Box<StringError> {

@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 #[inline(never)]
 fn global() -> Result<(), Box<dyn std::error::Error>> {
-    tasc::blocking::task(|_id| {}).wait_blocking()?;
+    tasc::blocking::task(|_id| {}).wait()?;
 
     let mut x = vec![0; 200];
     let (a, b) = x.split_at_mut(2);
@@ -27,8 +27,8 @@ fn global() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    task0.wait_blocking()?;
-    task1.wait_blocking()?;
+    task0.wait()?;
+    task1.wait()?;
 
     assert_eq!(x.iter().sum::<u32>(), 200);
 
@@ -73,11 +73,9 @@ fn global() -> Result<(), Box<dyn std::error::Error>> {
         res
     });
     let sum: tasc::error::Result<u64> = *tasc::blocking::task(|_| {
-        Ok(*sum_0_to_n2.wait_blocking()?
-            + *sum_0_to_n1.wait_blocking()?
-            + *sum_0_to_n0.wait_blocking()?)
+        Ok(*sum_0_to_n2.wait()? + *sum_0_to_n1.wait()? + *sum_0_to_n0.wait()?)
     })
-    .wait_blocking()?;
+    .wait()?;
     let sum = sum?;
     println!("sum: {sum}");
     assert_eq!(
@@ -125,8 +123,8 @@ fn local() -> Result<(), Box<dyn std::error::Error>> {
         i
     });
 
-    println!("task0: {}", task0.wait_blocking()?);
-    println!("task1: {}", task1.wait_blocking()?);
-    println!("task2: {}", task2.wait_blocking()?);
+    println!("task0: {}", task0.wait()?);
+    println!("task1: {}", task1.wait()?);
+    println!("task2: {}", task2.wait()?);
     Ok(())
 }

@@ -171,7 +171,7 @@ fn perform_tasks(workers: usize, work: usize) -> (f64, f64) {
     start.store(true, Ordering::Release);
     let all_workers_time = handlers
         .into_iter()
-        .map(|h| h.wait_blocking().unwrap().as_secs_f64())
+        .map(|h| h.wait().unwrap().as_secs_f64())
         .sum::<f64>();
 
     let total_time = (Instant::now() - total_time).as_secs_f64();

@@ -1,10 +1,12 @@
 use crate::{com, std_impl};
 use core::sync::atomic::{AtomicUsize, Ordering};
 
+/// The signal type used by the global context.
 pub type Signal = std_impl::Signal;
 
 static INITIAL_WORKERS: AtomicUsize = AtomicUsize::new(0);
 
+/// The global context, which is used in `[ThreadBuilder::default]`, `[tasc::task]`, `[tasc::scope]`, `[tasc::blocking::task]` and `[tasc::blocking::scope]`.
 pub struct GlobalContext {
     imp: std_impl::Context,
 }
@@ -32,10 +34,13 @@ pub fn init_with_limit(limit: usize) {
 }
 
 impl GlobalContext {
+    #[allow(missing_docs)]
     pub fn get() -> &'static Self {
         &GLOBAL
     }
 
+    /// Creates a signal which is the same signal used by the global context. This is the same as using
+    /// `[StdSignal::new]`
     pub fn signal() -> Signal {
         Signal::new()
     }
