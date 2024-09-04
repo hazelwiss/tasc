@@ -2,7 +2,7 @@
 name = "tasc"
 version = "0.0.1"
 edition = "2021"
-license_file = "LICENSE"
+license-file = "LICENSE"
 readme = "README"
 repository = "https://github.com/Kim-Dewelski/tascc"
 keywords = ["async", "no-std", "threads", "minimal"]
