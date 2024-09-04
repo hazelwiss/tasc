@@ -5,6 +5,7 @@ edition = "2021"
 license-file = "LICENSE"
 readme = "README"
 repository = "https://github.com/Kim-Dewelski/tascc"
+documentation = "https://docs.rs/tasc/latest/tasc"
 keywords = ["async", "no-std", "threads", "minimal"]
 categories = ["no-std", "asynchronous"]
 description = "A minimnal, asynchronous threadpool"
