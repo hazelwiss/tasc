@@ -95,7 +95,10 @@ impl ContextInner {
                 id,
                 wait_queue,
             };
-            let worker_thread = std::thread::spawn(move || worker.start());
+            let worker_thread = std::thread::Builder::new()
+                .name(std::format!("tasc worker #{i}"))
+                .spawn(move || worker.start())
+                .unwrap_or_else(|e| panic!("failed to create thread for worker pool: {e}"));
             self.handlers.push(WorkerCom {
                 _handle: worker_thread,
                 channel: sender,
@@ -135,7 +138,7 @@ impl Context {
     }
 
     pub fn new_blocking(handlers: usize) -> Self {
-        crate::waker::block_on(Self::new(handlers))
+        crate::signal::block_on_signal(Signal::new(), Self::new(handlers))
     }
 }
 
@@ -172,6 +175,12 @@ mod signal {
     pub struct Signal {
         state: Mutex<SignalState>,
         condvar: Condvar,
+    }
+
+    impl Default for Signal {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl Signal {
@@ -246,7 +255,7 @@ mod signal {
         }
     }
 
-    impl crate::waker::Signal for Signal {
+    impl crate::signal::Signal for Signal {
         fn wait(&self) {
             Self::wait(self)
         }

@@ -13,7 +13,8 @@ pub use ctx::TaskContext;
 #[cfg(feature = "std")]
 mod std_impl;
 
-mod waker;
+mod signal;
+pub use signal::Signal;
 
 pub mod com;
 pub mod error;
@@ -22,9 +23,9 @@ mod task;
 pub use task::*;
 
 #[cfg(feature = "global")]
-mod global;
+pub mod global;
 #[cfg(feature = "global")]
 pub use global::GlobalContext;
 
 #[cfg(feature = "std")]
-pub use std_impl::Context as StdContext;
+pub use std_impl::{Context as StdContext, Signal as StdSignal};

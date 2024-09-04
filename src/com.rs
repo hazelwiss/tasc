@@ -3,7 +3,7 @@ use core::{future::Future, mem::ManuallyDrop};
 use alloc::{boxed::Box, sync::Arc};
 use spin::Mutex;
 
-use crate::{error, waker};
+use crate::{error, signal, Signal};
 
 #[derive(Clone, Copy, Debug)]
 pub struct WorkerId(usize);
@@ -19,14 +19,6 @@ impl WorkerId {
 }
 
 pub type TaskFn = Box<dyn FnOnce(WorkerId) -> Box<dyn core::any::Any + Send + 'static> + Send>;
-
-pub(crate) struct CreateOpts {}
-
-impl Default for CreateOpts {
-    fn default() -> Self {
-        Self {}
-    }
-}
 
 struct ConnectionState {
     result: Mutex<Option<Box<dyn core::any::Any + Send>>>,
@@ -75,8 +67,11 @@ impl ComHandle {
         })
     }
 
-    pub fn wait_blocking(self) -> error::Result<Box<dyn core::any::Any + Send>> {
-        waker::block_on(self.wait())
+    pub fn wait_blocking(
+        self,
+        signal: impl Signal,
+    ) -> error::Result<Box<dyn core::any::Any + Send>> {
+        signal::block_on_signal(signal, self.wait())
     }
 }
 
