@@ -1,7 +1,13 @@
 [package]
 name = "tasc"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
+license_file = "LICENSE"
+readme = "README"
+repository = "https://github.com/Kim-Dewelski/tascc"
+keywords = ["async", "no-std", "threads", "minimal"]
+categories = ["no-std", "asynchronous"]
+description = "A minimnal, asynchronous threadpool"
 
 [features]
 default = ["std", "global"]
