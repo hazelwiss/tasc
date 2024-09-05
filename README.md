@@ -1,4 +1,4 @@
-tasc is an asynchronous worker pool library, allowing you to distribute work between multiple workers in both an asyncrhronous, and blocking API.
+tasc is an asynchronous worker pool library, allowing you to distribute work between multiple workers in both an asynchronous, and blocking API.
 tasc aims to be simplistic and portable, the base API does not rely on running within a context that provides the standard library, and can be run in an `no-std` environment.
 The API aims to be very similar to that of `[std::thread]`, so that if you understand one then understanding the other is simple.
 
@@ -13,7 +13,7 @@ Although a blocking API is provided, it is secondary to the asynchronous one.
 async {
 	// this will create a task, and them immediately awaits the task to completion.
 	// the `.await` is just because creating a task is considered an ascynchronous process.
-	tasc::task(|id| println!("this is a task running asyncrhonously with an id of {id}")).await;
+	tasc::task(|id| println!("this is a task running asynchronously with an id of {id}")).await;
 
 	// this will create a task, do some work, then join it at a later point.
 	let handle = tasc::task(|id| println!("this will run on a separate thread!")).await;
@@ -49,7 +49,7 @@ async {
 
 # Using The Blocking API
 
-tasc does not force using using an asynchronous API, and provides a blocking alternative such as `task::blocking::task` and `task::blocking::scope`.
+tasc does not force using using an asynchronous API, and provides a blocking alternative such as `tasc::blocking::task` and `tasc::blocking::scope`.
 
 ```rust
 let handle0 = tasc::blocking::task(|_| 20);
