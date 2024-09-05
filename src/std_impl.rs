@@ -139,7 +139,7 @@ impl Context {
                 wait_queue: WaitQueue::new(),
             }),
         };
-        this.set_limit(handlers).await;
+        this.set_workers(handlers).await;
         this
     }
 
@@ -150,8 +150,12 @@ impl Context {
 }
 
 impl crate::TaskContext for Context {
-    async fn set_limit(&self, max: usize) {
+    async fn set_workers(&self, max: usize) {
         self.inner.write().unwrap().set_limit(max)
+    }
+
+    fn workers(&self) -> usize {
+        self.inner.read().unwrap().handlers.len()
     }
 
     async fn create_task(&self, f: com::TaskFn) -> com::ComHandle {

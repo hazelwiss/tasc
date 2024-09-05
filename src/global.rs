@@ -47,8 +47,12 @@ impl GlobalContext {
 }
 
 impl crate::TaskContext for GlobalContext {
-    async fn set_limit(&self, max: usize) {
-        self.imp.set_limit(max).await
+    async fn set_workers(&self, max: usize) {
+        self.imp.set_workers(max).await
+    }
+
+    fn workers(&self) -> usize {
+        self.imp.workers()
     }
 
     async fn create_task(&self, f: com::TaskFn) -> com::ComHandle {
