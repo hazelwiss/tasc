@@ -1,4 +1,4 @@
-tasc is an asynchrounous worker pool library, allowing you to distribute work between multiple workers in both an asyncrhronous, and blocking API.
+tasc is an asynchronous worker pool library, allowing you to distribute work between multiple workers in both an asyncrhronous, and blocking API.
 tasc aims to be simplistic and portable, the base API does not rely on running within a context that provides the standard library, and can be run in an `no-std` environment.
 The API aims to be very similar to that of `[std::thread]`, so that if you understand one then understanding the other is simple.
 
@@ -26,7 +26,7 @@ async {
 		let bar = 2;
 		foo + bar
 	});
-	let result = hadle.handle.await.await.unwrap();
+	let result = handle.await.await.unwrap();
 }
 ```
 
