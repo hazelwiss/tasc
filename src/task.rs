@@ -231,6 +231,7 @@ mod imp {
 
     pub struct Scoped<'a, T, H: TaskHandle<T>> {
         handle: ManuallyDrop<H>,
+        should_drop: bool,
         _mark: PhantomData<(&'a (), T)>,
     }
 
@@ -238,6 +239,7 @@ mod imp {
         pub fn new(handle: H) -> Self {
             Self {
                 handle: ManuallyDrop::new(handle),
+                should_drop: true,
                 _mark: PhantomData,
             }
         }
@@ -253,29 +255,40 @@ mod imp {
         }
     }
 
-    impl<'a, T: Send, H: AsyncTaskHandle<T>> AsyncTaskHandle<T> for Scoped<'a, T, H> {
+    impl<'a, T: Unpin + Send + 'static, H: AsyncTaskHandle<T> + Unpin> AsyncTaskHandle<T>
+        for Scoped<'a, T, H>
+    {
         fn into_blocking(self) -> impl BlockingTaskHandle<T> {
             let mut this = ManuallyDrop::new(self);
             Scoped::<'a, T, _> {
                 handle: ManuallyDrop::new(unsafe {
                     ManuallyDrop::take(&mut this.handle).into_blocking()
                 }),
+                should_drop: true,
                 _mark: PhantomData,
             }
         }
     }
 
-    impl<'a, T: Send, H: AsyncTaskHandle<T>> core::future::Future for Scoped<'a, T, H> {
+    impl<'a, T: Unpin + Send + 'static, H: AsyncTaskHandle<T> + Unpin> core::future::Future
+        for Scoped<'a, T, H>
+    {
         type Output = Result<T>;
 
         fn poll(
             self: core::pin::Pin<&mut Self>,
             cx: &mut core::task::Context<'_>,
         ) -> core::task::Poll<Self::Output> {
-            core::future::Future::poll(
-                unsafe { self.map_unchecked_mut(|inner| &mut *inner.handle) },
-                cx,
-            )
+            if self.is_finished() {
+                let this = self.get_mut();
+                this.should_drop = false;
+                let (handle, signal) =
+                    unsafe { ManuallyDrop::take(&mut this.handle).into_raw_handle_and_signal() };
+                core::task::Poll::Ready(InnerHandle::poll_handle(handle, signal))
+            } else {
+                cx.waker().wake_by_ref();
+                core::task::Poll::Pending
+            }
         }
     }
 
@@ -288,9 +301,11 @@ mod imp {
 
     impl<'a, T, H: TaskHandle<T>> Drop for Scoped<'a, T, H> {
         fn drop(&mut self) {
-            let (handle, signal) =
-                unsafe { ManuallyDrop::take(&mut self.handle).into_raw_handle_and_signal() };
-            let _ = handle.wait_blocking(signal);
+            if self.should_drop {
+                let (handle, signal) =
+                    unsafe { ManuallyDrop::take(&mut self.handle).into_raw_handle_and_signal() };
+                let _ = handle.wait_blocking(signal);
+            }
         }
     }
 }
