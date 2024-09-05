@@ -12,13 +12,13 @@ Although a blocking API is provided, it is secondary to the asynchronous one.
 ```rs
 async {
 	// this will create a task, and them immediately awaits the task to completion.
-	// the `.await` is just because creating a task is considered an ascynchronous process, the awaiting happens by a call to `[drop]` of the handle type.
+	// the `.await` is just because creating a task is considered an ascynchronous process.
 	tasc::task(|id| println!("this is a task running asyncrhonously with an id of {id}")).await;
 
 	// this will create a task, do some work, then join it at a later point.
 	let handle = tasc::task(|id| println!("this will run on a separate thread!")).await;
 	do_work();
-	handle.wait().await; // here we join the thread
+	handle.await; // here we join the thread
 
 	// a task is capable of returning a value.
 	let handle = tasc::task(|_id| {
@@ -26,7 +26,7 @@ async {
 		let bar = 2;
 		foo + bar
 	});
-	let result = hadle.handle.await.wait().await.unwrap(); // `[wait]` returns a result.
+	let result = hadle.handle.await.await.unwrap();
 }
 ```
 

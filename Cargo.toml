@@ -22,3 +22,6 @@ num_cpus = "0.2"
 
 # STD feature
 crossbeam-channel = { version = "0.5.13", optional = true }
+
+[dev-dependencies]
+pollster = "0.3.0"

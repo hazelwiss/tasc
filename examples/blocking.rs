@@ -1,4 +1,5 @@
 use std::time::{Duration, Instant};
+use tasc::BlockingTaskHandle;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     global()?;
@@ -42,9 +43,9 @@ fn global() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("summing large numbers");
-    let n0 = 10_000_000_000;
-    let n1 = 20_000_000_000;
-    let n2 = 30_000_000_000;
+    let n0 = 100_000;
+    let n1 = 200_000;
+    let n2 = 300_000;
     let sum_0_to_n0 = tasc::blocking::task(move |_| {
         let start = Instant::now();
         let res = sum(0, n0);
@@ -72,8 +73,8 @@ fn global() -> Result<(), Box<dyn std::error::Error>> {
         );
         res
     });
-    let sum: tasc::error::Result<u64> = *tasc::blocking::task(|_| {
-        Ok(*sum_0_to_n2.wait()? + *sum_0_to_n1.wait()? + *sum_0_to_n0.wait()?)
+    let sum: tasc::error::Result<u64> = tasc::blocking::task(|_| {
+        Ok(sum_0_to_n2.wait()? + sum_0_to_n1.wait()? + sum_0_to_n0.wait()?)
     })
     .wait()?;
     let sum = sum?;

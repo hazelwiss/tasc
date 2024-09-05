@@ -6,6 +6,8 @@ use std::{
     time::Instant,
 };
 
+use tasc::BlockingTaskHandle;
+
 const EXPENSE: u64 = 1_000_000_000;
 
 #[inline(never)]

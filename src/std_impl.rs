@@ -1,3 +1,4 @@
+use core::mem::ManuallyDrop;
 use crossbeam_channel as channel;
 use std::{eprintln, sync::RwLock, vec::Vec};
 
@@ -62,7 +63,7 @@ impl Worker {
 }
 
 struct WorkerCom {
-    _handle: std::thread::JoinHandle<()>,
+    thread: ManuallyDrop<std::thread::JoinHandle<()>>,
     channel: channel::Sender<WorkerMsg>,
     #[allow(unused)]
     id: WorkerId,
@@ -100,7 +101,7 @@ impl ContextInner {
                 .spawn(move || worker.start())
                 .unwrap_or_else(|e| panic!("failed to create thread for worker pool: {e}"));
             self.handlers.push(WorkerCom {
-                _handle: worker_thread,
+                thread: ManuallyDrop::new(worker_thread),
                 channel: sender,
                 id,
             });
@@ -160,9 +161,16 @@ impl crate::TaskContext for Context {
 
 impl Drop for Context {
     fn drop(&mut self) {
-        let write = self.inner.read().unwrap();
+        let mut write = self.inner.write().unwrap();
         for handle in &write.handlers {
             handle.channel.send(WorkerMsg::Stop).unwrap();
+        }
+        for handle in &mut write.handlers {
+            unsafe {
+                ManuallyDrop::take(&mut handle.thread)
+                    .join()
+                    .expect("failed to join thread");
+            };
         }
     }
 }

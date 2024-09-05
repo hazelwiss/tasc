@@ -1,7 +1,5 @@
 //! Contains shared types for communication between a task and its handle in a way that is independent from the context.
 
-use core::{future::Future, mem::ManuallyDrop};
-
 use alloc::{boxed::Box, sync::Arc};
 use spin::Mutex;
 
@@ -43,7 +41,7 @@ pub struct JobHandle {
 }
 
 impl JobHandle {
-    /// Called by the context when a task is finished, and the result can by sent to the Handle
+    /// Called by the context when a task is finished, and the result can by sent to `[ComHandle]`.
     pub fn finish_job(&self, result: Box<dyn core::any::Any + Send>) {
         let connection = &self.connection;
         *connection.result.lock() = Some(result);
@@ -55,8 +53,8 @@ impl JobHandle {
     }
 }
 
-/// Used by the context to maintain communications wit the `[JobHandle]` and see the status of the ongoing task
-/// as well as retrieve the result once the task is finished.
+/// Used to maintain communications with the `[JobHandle]` and see the status of the ongoing task.
+/// Once the result is available, we retrive it from this type. This type is a future, and can be awaited.
 pub struct ComHandle {
     #[allow(unused)]
     id: WorkerId,
@@ -73,25 +71,28 @@ impl ComHandle {
             .unwrap_or(false)
     }
 
-    /// Awaits the current task until it is finished asynchronously.
-    pub fn wait(self) -> impl Future<Output = error::Result<Box<dyn core::any::Any + Send>>> {
-        let this = ManuallyDrop::new(self);
-        core::future::poll_fn(move |cx| {
-            if this.is_finished() {
-                core::task::Poll::Ready(Ok(this.connection.result.lock().take().unwrap()))
-            } else {
-                cx.waker().wake_by_ref();
-                core::task::Poll::Pending
-            }
-        })
-    }
-
     /// Awaits the current task until it is finished, blocks the current thread.
     pub fn wait_blocking(
         self,
         signal: impl Signal,
     ) -> error::Result<Box<dyn core::any::Any + Send>> {
-        signal::block_on_signal(signal, self.wait())
+        signal::block_on_signal(signal, self)
+    }
+}
+
+impl core::future::Future for ComHandle {
+    type Output = error::Result<Box<dyn core::any::Any + Send>>;
+
+    fn poll(
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> core::task::Poll<Self::Output> {
+        if self.is_finished() {
+            core::task::Poll::Ready(Ok(self.connection.result.lock().take().unwrap()))
+        } else {
+            cx.waker().wake_by_ref();
+            core::task::Poll::Pending
+        }
     }
 }
 

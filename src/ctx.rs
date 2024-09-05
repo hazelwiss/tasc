@@ -12,6 +12,6 @@ pub trait TaskContext {
     /// the limit will not change.
     fn set_limit(&self, max: usize) -> impl Future<Output = ()>;
 
-    /// Creates an asynchronous task used by `[tasc::task::Handle]` and `[tasc::task::BlockingHandle]`.
+    /// Creates an asynchronous task used by handle traits inside of `task`.
     fn create_task(&self, f: com::TaskFn) -> impl Future<Output = com::ComHandle>;
 }

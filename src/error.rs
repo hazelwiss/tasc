@@ -53,7 +53,9 @@ impl From<Error> for Box<dyn core::error::Error + Send> {
 #[allow(missing_docs)]
 pub type Result<T> = core::result::Result<T, Error>;
 
-pub(crate) fn display_error(err: impl Into<String>) -> Box<StringError> {
+pub(crate) fn display_error(err: impl Into<String>) -> Error {
     let string: String = err.into();
-    Box::new(StringError(string.into_boxed_str()))
+    Error {
+        inner: Box::new(StringError(string.into_boxed_str())),
+    }
 }
