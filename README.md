@@ -9,7 +9,7 @@ tasc operates, by default, by using a global context which relies on the standar
 tasc is centered around providing an asynchronous API, so therefore the most simplest way to do something is generally asynchronous and not blocking.
 Although a blocking API is provided, it is secondary to the asynchronous one.
 
-```rs
+```rust
 async {
 	// this will create a task, and them immediately awaits the task to completion.
 	// the `.await` is just because creating a task is considered an ascynchronous process.
@@ -34,7 +34,7 @@ async {
 
 tasc allows for scoped tasks, which are quite similar to scoped threads in the standard library, except it does not have the `scope` function.
 
-```rs
+```rust
 async {
 	let mut v = vec![];
 
@@ -51,7 +51,7 @@ async {
 
 tasc does not force using using an asynchronous API, and provides a blocking alternative such as `task::blocking::task` and `task::blocking::scope`.
 
-```rs
+```rust
 let handle0 = tasc::blocking::task(|_| 20);
 let bar = 5;
 let handle1 = tasc::blocking::scope(|_| 20 + bar);
@@ -64,7 +64,7 @@ println!("{sum:?}");
 
 tasc allows you to create your own context by deriving the `[TaskContext]` trait on a type, and then passing that to `[TaskBuilder]`. If the `std` feature is enabled, tasc will provide such a context already called `[StdContext]`. Using `[StdContext]` outside of the global context is quite simple.
 
-```rs
+```rust
 async {
 	// create a context with 8 worker threads.
 	let cx = tasc::StdContext::new(8).await;
