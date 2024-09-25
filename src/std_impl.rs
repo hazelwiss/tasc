@@ -31,7 +31,7 @@ impl WaitQueue {
 enum WorkerMsg {
     Stop,
     Task {
-        f: com::TaskFn,
+        f: com::TaskFut,
         handle: com::JobHandle,
     },
 }
@@ -40,6 +40,7 @@ struct Worker {
     incoming_msgs: channel::Receiver<WorkerMsg>,
     wait_queue: WaitQueueSubscriber,
     id: WorkerId,
+    signal: alloc::sync::Arc<Signal>,
 }
 
 impl Worker {
@@ -50,7 +51,10 @@ impl Worker {
                 match self.incoming_msgs.recv().unwrap() {
                     WorkerMsg::Stop => return,
                     WorkerMsg::Task { f, handle } => {
-                        let res = f(handle.worker_id());
+                        let res = crate::signal::block_on_signal_arc(
+                            self.signal.clone(),
+                            alloc::boxed::Box::into_pin(f),
+                        );
                         handle.finish_job(res);
                     }
                 }
@@ -95,6 +99,7 @@ impl ContextInner {
                 incoming_msgs: receiver,
                 id,
                 wait_queue,
+                signal: alloc::sync::Arc::new(Signal::new()),
             };
             let worker_thread = std::thread::Builder::new()
                 .name(std::format!("tasc worker #{i}"))
@@ -108,7 +113,7 @@ impl ContextInner {
         }
     }
 
-    fn create_task(&self, f: com::TaskFn) -> com::ComHandle {
+    fn create_task(&self, f: com::TaskFut) -> com::ComHandle {
         let worker_id = self.find_ready_worker_id();
         let (job_handle, handle) = com::new_job_handles(worker_id);
         self.send_msg(
@@ -153,7 +158,7 @@ impl crate::TaskContext for Context {
         self.inner.read().unwrap().handlers.len()
     }
 
-    fn create_task(&self, f: com::TaskFn) -> com::ComHandle {
+    fn create_task(&self, f: com::TaskFut) -> com::ComHandle {
         self.inner.read().unwrap().create_task(f)
     }
 }
@@ -271,7 +276,7 @@ mod signal {
         }
     }
 
-    impl crate::signal::Signal for Signal {
+    impl crate::Signal for Signal {
         fn wait(&self) {
             Self::wait(self)
         }

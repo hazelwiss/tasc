@@ -1,8 +1,8 @@
 use alloc::boxed::Box;
-use core::{marker::PhantomData, mem::ManuallyDrop};
+use core::{future::Future, marker::PhantomData, mem::ManuallyDrop};
 
 use crate::{
-    com::{self, WorkerId},
+    com,
     error::{self, Result},
     signal::{self, Signal},
     TaskContext,
@@ -32,15 +32,17 @@ impl<'c, C: TaskContext, S: Signal + Default> TaskBuilder<'c, C, S> {
 
     fn create_task<T: Send + 'static>(
         &self,
-        f: impl FnOnce(WorkerId) -> T + Send + 'static,
+        f: impl Future<Output = T> + Send + 'static,
     ) -> com::ComHandle {
-        self.ctx.create_task(Box::new(move |id| Box::new(f(id))))
+        self.ctx.create_task(Box::new(async move {
+            Box::new(f.await) as Box<dyn core::any::Any + Send>
+        }))
     }
 
     /// Spawns a new task asynchronously.
     pub fn spawn<T: Unpin + Send + 'static>(
         self,
-        f: impl FnOnce(WorkerId) -> T + Send + 'static,
+        f: impl Future<Output = T> + Send + 'static,
     ) -> handles::AsyncHandle<T, S> {
         let handle = self.create_task(f);
         handles::AsyncHandle::new(handle, S::default())
@@ -49,41 +51,45 @@ impl<'c, C: TaskContext, S: Signal + Default> TaskBuilder<'c, C, S> {
     /// Spawns a new task.
     pub fn spawn_sync<T: Send + 'static>(
         self,
-        f: impl FnOnce(WorkerId) -> T + Send + 'static,
+        f: impl FnOnce() -> T + Send + 'static,
     ) -> handles::SyncHandle<T, S> {
-        let handle = self.create_task(f);
+        let handle = self.create_task(async move { f() });
         handles::SyncHandle::new(handle, S::default())
     }
 
     /// Spawns a new scoped task asynchronously.
     pub fn spawn_scoped<'a: 'c, T: Unpin + Send + 'static>(
         self,
-        f: impl FnOnce(WorkerId) -> T + Send + 'a,
+        f: impl Future<Output = T> + Send + 'a,
     ) -> handles::AsyncScopedHandle<'a, T, S>
     where
         S: 'static,
     {
-        // TODO: find a way to not use box when erasing the lifetime of this function?
         let f = unsafe {
-            Box::from_raw(Box::into_raw(Box::new(f)) as *mut (dyn FnOnce(WorkerId) -> T + Send))
+            core::mem::transmute::<
+                alloc::boxed::Box<dyn core::future::Future<Output = T> + core::marker::Send>,
+                alloc::boxed::Box<dyn core::future::Future<Output = T> + core::marker::Send>,
+            >(Box::new(f) as Box<dyn Future<Output = T> + Send + 'a>)
         };
-        let handle = self.create_task(f);
+        let handle = self.create_task(Box::into_pin(f));
         handles::AsyncScopedHandle::new(handle, S::default())
     }
 
     /// Spawns a new scoped task.
     pub fn spawn_scoped_sync<'a: 'c, T: Send + 'static>(
         self,
-        f: impl FnOnce(WorkerId) -> T + Send + 'a,
+        f: impl FnOnce() -> T + Send + 'a,
     ) -> handles::SyncScopedHandle<'a, T, S>
     where
         S: 'static,
     {
-        // TODO: find a way to not use box when erasing the lifetime of this function?
         let f = unsafe {
-            Box::from_raw(Box::into_raw(Box::new(f)) as *mut (dyn FnOnce(WorkerId) -> T + Send))
+            core::mem::transmute::<
+                alloc::boxed::Box<dyn core::ops::FnOnce() -> T + core::marker::Send>,
+                alloc::boxed::Box<dyn core::ops::FnOnce() -> T + core::marker::Send>,
+            >(Box::new(f) as Box<dyn FnOnce() -> T + Send>)
         };
-        let handle = self.create_task(f);
+        let handle = self.create_task(async move { f() });
         handles::SyncScopedHandle::new(handle, S::default())
     }
 }
@@ -329,14 +335,14 @@ mod global_helpers {
 
     /// Spawns an asynchronous task.
     pub fn task<T: Unpin + Send + 'static>(
-        f: impl FnOnce(WorkerId) -> T + Send + 'static,
+        f: impl Future<Output = T> + Send + 'static,
     ) -> AsyncHandle<T> {
         TaskBuilder::default().spawn(f)
     }
 
     /// Spawns a scoped asynchronous task.
     pub fn scoped<'a, T: Unpin + Send + 'static>(
-        f: impl FnOnce(WorkerId) -> T + Send + 'a,
+        f: impl Future<Output = T> + Send + 'a,
     ) -> AsyncScopedHandle<'a, T> {
         TaskBuilder::default().spawn_scoped(f)
     }
@@ -352,14 +358,14 @@ mod global_helpers {
 
         /// Spawns a synchronous task.
         pub fn task<T: Unpin + Send + 'static>(
-            f: impl FnOnce(WorkerId) -> T + Send + 'static,
+            f: impl FnOnce() -> T + Send + 'static,
         ) -> SyncHandle<T> {
             TaskBuilder::default().spawn_sync(f)
         }
 
         /// Spawns a scoped synchronous task.
         pub fn scoped<'a, T: Unpin + Send + 'static>(
-            f: impl FnOnce(WorkerId) -> T + Send + 'a,
+            f: impl FnOnce() -> T + Send + 'a,
         ) -> SyncScopedHandle<'a, T> {
             TaskBuilder::default().spawn_scoped_sync(f)
         }

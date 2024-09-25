@@ -1,6 +1,7 @@
 //! Contains shared types for communication between a task and its handle in a way that is independent from the context.
 
 use alloc::{boxed::Box, sync::Arc};
+use core::future::Future;
 use spin::Mutex;
 
 use crate::{error, signal, Signal};
@@ -28,7 +29,7 @@ impl core::fmt::Display for WorkerId {
 }
 
 #[allow(missing_docs)]
-pub type TaskFn = Box<dyn FnOnce(WorkerId) -> Box<dyn core::any::Any + Send + 'static> + Send>;
+pub type TaskFut = Box<dyn Future<Output = Box<dyn core::any::Any + Send + 'static>> + Send>;
 
 struct ConnectionState {
     result: Mutex<Option<Box<dyn core::any::Any + Send>>>,

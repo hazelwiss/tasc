@@ -13,5 +13,5 @@ pub trait TaskContext {
     fn workers(&self) -> usize;
 
     /// Creates an asynchronous task used by handle traits inside of `task`.
-    fn create_task(&self, f: com::TaskFn) -> com::ComHandle;
+    fn create_task(&self, f: com::TaskFut) -> com::ComHandle;
 }

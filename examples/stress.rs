@@ -150,7 +150,7 @@ fn perform_tasks(workers: usize, work: usize) -> (f64, f64) {
         let worker_load = work_per_worker + if remainder > 0 { 1 } else { 0 };
         let start = start.clone();
         handlers.push(
-            tasc::TaskBuilder::<_, tasc::global::Signal>::from_ctx(&ctx).spawn_sync(move |_| {
+            tasc::TaskBuilder::<_, tasc::global::Signal>::from_ctx(&ctx).spawn_sync(move || {
                 while !start.load(Ordering::Acquire) {
                     // we want it to busy wait
                     std::hint::black_box(())

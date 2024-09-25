@@ -3,13 +3,13 @@ fn main() {
 }
 
 async fn run() -> tasc::error::Result<()> {
-    tasc::task(|_| println!("I am an async task!")).await?;
+    tasc::task(async { println!("I am an async task!") }).await?;
 
-    let value = tasc::task(|_| 2 + 2).await.unwrap();
+    let value = tasc::task(async { 2 + 2 }).await.unwrap();
     println!("returned {value} from async task!");
 
     let mut borrowed = [1, 2, 3];
-    let handle = tasc::scoped(|_| {
+    let handle = tasc::scoped(async {
         borrowed[0] = 3;
         borrowed[2] = 1;
     })

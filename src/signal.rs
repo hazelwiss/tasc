@@ -13,10 +13,13 @@ pub trait Signal: Send + Unpin {
 }
 
 /// Blocks asynchronous code based on a signal.
-pub fn block_on_signal<F: Future>(signal: impl Signal, mut future: F) -> F::Output {
-    let mut future = unsafe { core::pin::Pin::new_unchecked(&mut future) };
-
+pub fn block_on_signal<F: Future>(signal: impl Signal, future: F) -> F::Output {
     let signal = Arc::new(signal);
+    block_on_signal_arc(signal, future)
+}
+
+pub fn block_on_signal_arc<F: Future>(signal: Arc<impl Signal>, mut future: F) -> F::Output {
+    let mut future = unsafe { core::pin::Pin::new_unchecked(&mut future) };
     let waker = Signal::waker(signal.clone());
 
     let mut cx = Context::from_waker(&waker);

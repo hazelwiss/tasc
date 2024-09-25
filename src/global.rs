@@ -52,7 +52,7 @@ impl crate::TaskContext for GlobalContext {
         self.imp.workers()
     }
 
-    fn create_task(&self, f: com::TaskFn) -> com::ComHandle {
+    fn create_task(&self, f: com::TaskFut) -> com::ComHandle {
         self.imp.create_task(f)
     }
 }

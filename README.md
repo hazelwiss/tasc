@@ -10,24 +10,28 @@ tasc is centered around providing an asynchronous API, so therefore the most sim
 Although a synchronous API is provided, it is secondary to the asynchronous one.
 
 ```rust
+extern "Rust" {
+	fn do_work();
+}
+
 async {
 	// this will create a task, and them immediately awaits the task to completion.
 	// the `.await` is just because creating a task is considered an ascynchronous process.
-	tasc::task(|id| println!("this is a task running asynchronously with an id of {id}")).await;
+	tasc::task(async { println!("this is a task running asynchronously") }).await;
 
 	// this will create a task, do some work, then join it at a later point.
-	let handle = tasc::task(|id| println!("this will run on a separate thread!")).await;
-	do_work();
+	let handle = tasc::task(async { println!("this will run on a separate thread!") });
+	unsafe { do_work() };
 	handle.await; // here we join the thread
 
 	// a task is capable of returning a value.
-	let handle = tasc::task(|_id| {
+	let handle = tasc::task(async {
 		let foo = 1;
 		let bar = 2;
 		foo + bar
 	});
-	let result = handle.await.await.unwrap();
-}
+	let result = handle.await.unwrap();
+};
 ```
 
 # Scoped Tasks
@@ -38,25 +42,40 @@ tasc allows for scoped tasks, which are quite similar to scoped threads in the s
 async {
 	let mut v = vec![];
 
-	tasc::scope(|_id| {
+	tasc::scoped(async {
 		// borrows v mutably
 		v.push(2);
 	}).await;
 
-	println!("{x:?}");
-}
+	println!("{v:?}");
+};
 ```
+
+there is also a synchronous variant.
+
+```rust
+let mut v = vec![];
+
+tasc::sync::scoped(|| {
+	// borrows v mutably
+	v.push(2);
+}).wait();
+
+println!("{v:?}");
+```
+
+Scoped tasks are awaited upon drop.
 
 # Using The Synchronous API
 
 tasc does not force using using an asynchronous API, and provides a synchronous alternative such as `tasc::sync::task` and `tasc::sync::scope`.
 
 ```rust
-let handle0 = tasc::sync::task(|_| 20);
+let handle0 = tasc::sync::task(|| 20);
 let bar = 5;
-let handle1 = tasc::sync::scope(|_| 20 + bar);
+let handle1 = tasc::sync::scoped(|| 20 + bar);
 
-let sum = handle.wait().unwrap() + handle1.wait().unwrap();
+let sum = handle0.wait().unwrap() + handle1.wait().unwrap();
 println!("{sum:?}");
 ```
 
@@ -67,10 +86,10 @@ tasc allows you to create your own context by deriving the `[TaskContext]` trait
 ```rust
 async {
 	// create a context with 8 worker threads.
-	let cx = tasc::StdContext::new(8).await;
-	tasc::TaskBuilder::<tasc::global::Signal>::from_ctx(&cx).spawn(|_id| println!("I am now spawned from the cx context!")).await;
+	let cx = tasc::StdContext::new(8);
+	tasc::TaskBuilder::<tasc::StdContext, tasc::global::Signal>::from_ctx(&cx).spawn(async { println!("I am now spawned from the cx context!") });
 
 	// optionally, we can also use the `[Default]` trait if the `std` feature is enabled, which will create a `[TaskBuilder]` using the global context and global signal.
-	tasc::TaskBuilder::default().spawn(|_id| println!("I am created in the global context, prefer to use 'tasc::task' instead!")).await;
-}
+	tasc::TaskBuilder::default().spawn(async { println!("I am created in the global context, prefer to use 'tasc::task' instead!") });
+};
 ```
