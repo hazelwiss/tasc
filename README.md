@@ -2,7 +2,7 @@ tasc is an asynchronous worker pool library, allowing you to distribute work bet
 tasc aims to be simplistic and portable, the base API does not rely on running within a context that provides the standard library, and can be run in an `no-std` environment.
 The API aims to be very similar to that of [`std::thread`], so that if you understand one then understanding the other is simple.
 
-tasc operates, by default, by using a global context which relies on the standard library. The helper functions `tasc::task`, `tasc::scope` and everything under `tasc::sync` will use the global context by default, and requires the global feature to be enabled. When the global feature is enabled, it requires enabling the std feature which will require a dependency on the standard library.
+tasc operates, by default, by using a global context which relies on the standard library. The helper functions [`task`], [`scope`] and everything under [`sync`] will use the global context by default, and requires the global feature to be enabled. When the global feature is enabled, it requires enabling the std feature which will require a dependency on the standard library.
 
 # Using Async tasc
 
@@ -36,7 +36,7 @@ async {
 
 # Scoped Tasks
 
-tasc allows for scoped tasks, which are quite similar to scoped threads in the standard library, except it does not have the `scope` function.
+tasc allows for scoped tasks, which are quite similar to scoped threads in the standard library, except it does not have the [`scope`] function.
 
 ```rust
 async {
@@ -68,7 +68,7 @@ Scoped tasks are awaited upon drop.
 
 # Using The Synchronous API
 
-tasc does not force using using an asynchronous API, and provides a synchronous alternative such as `tasc::sync::task` and `tasc::sync::scope`.
+tasc does not force using using an asynchronous API, and provides a synchronous alternative such as [`sync::task`] and [`sync::scope`].
 
 ```rust
 let handle0 = tasc::sync::task(|| 20);
