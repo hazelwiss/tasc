@@ -8,7 +8,7 @@ pub trait Signal: Send + Unpin {
     /// Awaits the signal to trigger.
     fn wait(&self);
 
-    /// Crates a waker from `[Self]`.
+    /// Crates a waker from [`Self`].
     fn waker(self: Arc<Self>) -> core::task::Waker;
 }
 

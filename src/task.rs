@@ -8,7 +8,7 @@ use crate::{
     TaskContext,
 };
 
-/// `[TaskBuilder]` is used to build new tasks from a given context.
+/// [`TaskBuilder`] is used to build new tasks from a given context.
 pub struct TaskBuilder<'c, C, S> {
     ctx: &'c C,
     _mark: PhantomData<S>,
@@ -22,7 +22,7 @@ impl Default for TaskBuilder<'static, crate::GlobalContext, crate::global::Signa
 }
 
 impl<'c, C: TaskContext, S: Signal + Default> TaskBuilder<'c, C, S> {
-    /// Creates the `[TaskBuilder]` based on the context `C`.
+    /// Creates the [`TaskBuilder`] based on the context `C`.
     pub fn from_ctx(ctx: &'c C) -> Self {
         Self {
             ctx,

@@ -130,7 +130,7 @@ impl ContextInner {
 /// The default context using crossbeam and the standard library.
 ///
 /// This context facilitates creating new tasks and effectively dividing them among workers via a wait queue.
-/// Creating new threads uses the Rust standard library `[std::thread::spawn]` with its default settings.
+/// Creating new threads uses the Rust standard library [`std::thread::spawn`] with its default settings.
 pub struct Context {
     inner: RwLock<ContextInner>,
 }
@@ -190,7 +190,7 @@ mod signal {
         Notified,
     }
 
-    /// The signal used by `[StdContext]`, which makes use of `[CondVar]` from the standard library
+    /// The signal used by [`StdContext`], which makes use of [`CondVar`] from the standard library
     /// to efficiently await futures without wasting energy in a spinloop.
     pub struct Signal {
         state: Mutex<SignalState>,

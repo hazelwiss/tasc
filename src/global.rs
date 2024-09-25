@@ -6,7 +6,7 @@ pub type Signal = std_impl::Signal;
 
 static INITIAL_WORKERS: AtomicUsize = AtomicUsize::new(0);
 
-/// The global context, which is used in `[ThreadBuilder::default]`, `[tasc::task]`, `[tasc::scope]`, `[tasc::sync::task]` and `[tasc::sync::scope]`.
+/// The global context, which is used in [`ThreadBuilder::default`], [`tasc::task`], [`tasc::scope`], [`tasc::sync::task`] and [`tasc::sync::scope`].
 pub struct GlobalContext {
     imp: std_impl::Context,
 }
@@ -37,7 +37,7 @@ impl GlobalContext {
     }
 
     /// Creates a signal which is the same signal used by the global context. This is the same as using
-    /// `[StdSignal::new]`
+    /// [`StdSignal::new`]
     pub fn signal() -> Signal {
         Signal::new()
     }

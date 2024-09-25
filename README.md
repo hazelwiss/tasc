@@ -1,6 +1,6 @@
 tasc is an asynchronous worker pool library, allowing you to distribute work between multiple workers in both an asynchronous and synchronous API.
 tasc aims to be simplistic and portable, the base API does not rely on running within a context that provides the standard library, and can be run in an `no-std` environment.
-The API aims to be very similar to that of `[std::thread]`, so that if you understand one then understanding the other is simple.
+The API aims to be very similar to that of [`std::thread`], so that if you understand one then understanding the other is simple.
 
 tasc operates, by default, by using a global context which relies on the standard library. The helper functions `tasc::task`, `tasc::scope` and everything under `tasc::sync` will use the global context by default, and requires the global feature to be enabled. When the global feature is enabled, it requires enabling the std feature which will require a dependency on the standard library.
 
@@ -81,7 +81,7 @@ println!("{sum:?}");
 
 # Using The Context Directly
 
-tasc allows you to create your own context by deriving the `[TaskContext]` trait on a type, and then passing that to `[TaskBuilder]`. If the `std` feature is enabled, tasc will provide such a context already called `[StdContext]`. Using `[StdContext]` outside of the global context is quite simple.
+tasc allows you to create your own context by deriving the [`TaskContext`] trait on a type, and then passing that to [`TaskBuilder`]. If the `std` feature is enabled, tasc will provide such a context already called [`StdContext`]. Using [`StdContext`] outside of the global context is quite simple.
 
 ```rust
 async {
@@ -89,7 +89,7 @@ async {
 	let cx = tasc::StdContext::new(8);
 	tasc::TaskBuilder::<tasc::StdContext, tasc::global::Signal>::from_ctx(&cx).spawn(async { println!("I am now spawned from the cx context!") });
 
-	// optionally, we can also use the `[Default]` trait if the `std` feature is enabled, which will create a `[TaskBuilder]` using the global context and global signal.
+	// optionally, we can also use the [`Default`] trait if the `std` feature is enabled, which will create a [`TaskBuilder`] using the global context and global signal.
 	tasc::TaskBuilder::default().spawn(async { println!("I am created in the global context, prefer to use 'tasc::task' instead!") });
 };
 ```

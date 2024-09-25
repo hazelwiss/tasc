@@ -2,7 +2,7 @@ use crate::com;
 
 /// The trait implemented by the context.
 ///
-/// This trait is used by `[TaskBuilder]` to create new tasks, as well as to increase the capacity of workers.
+/// This trait is used by [`TaskBuilder`] to create new tasks, as well as to increase the capacity of workers.
 /// This trait is not object safe.
 pub trait TaskContext {
     /// Sets the amount of concurrent workers. The amount of workers  can only ever increase.

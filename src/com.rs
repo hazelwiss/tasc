@@ -42,7 +42,7 @@ pub struct JobHandle {
 }
 
 impl JobHandle {
-    /// Called by the context when a task is finished, and the result can by sent to `[ComHandle]`.
+    /// Called by the context when a task is finished, and the result can by sent to [`ComHandle`].
     pub fn finish_job(&self, result: Box<dyn core::any::Any + Send>) {
         let connection = &self.connection;
         *connection.result.lock() = Some(result);
@@ -54,7 +54,7 @@ impl JobHandle {
     }
 }
 
-/// Used to maintain communications with the `[JobHandle]` and see the status of the ongoing task.
+/// Used to maintain communications with the [`JobHandle`] and see the status of the ongoing task.
 /// Once the result is available, we retrive it from this type. This type is a future, and can be awaited.
 pub struct ComHandle {
     #[allow(unused)]
