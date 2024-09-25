@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 use core::{future::Future, task::Context};
 
-/// Provides an abstraction on a signal that is used for the blocking API.
+/// Provides an abstraction on a signal that is used for the synchronous API.
 /// The signal is also used when a type is dropped, because asynchronous drops
 /// are unstable.
 pub trait Signal: Send + Unpin {

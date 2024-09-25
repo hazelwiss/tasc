@@ -1,5 +1,4 @@
 use std::time::{Duration, Instant};
-use tasc::BlockingTaskHandle;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     global()?;
@@ -9,17 +8,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 #[inline(never)]
 fn global() -> Result<(), Box<dyn std::error::Error>> {
-    tasc::blocking::task(|_id| {}).wait()?;
+    tasc::sync::task(|_id| {}).wait()?;
 
     let mut x = vec![0; 200];
     let (a, b) = x.split_at_mut(2);
     let (c, d) = b.split_at_mut(5);
-    let task0 = tasc::blocking::scoped(|_id| {
+    let task0 = tasc::sync::scoped(|_id| {
         for e in a {
             *e += 1;
         }
     });
-    let task1 = tasc::blocking::scoped(|_id| {
+    let task1 = tasc::sync::scoped(|_id| {
         for e in c {
             *e += 1;
         }
@@ -46,7 +45,7 @@ fn global() -> Result<(), Box<dyn std::error::Error>> {
     let n0 = 100_000;
     let n1 = 200_000;
     let n2 = 300_000;
-    let sum_0_to_n0 = tasc::blocking::task(move |_| {
+    let sum_0_to_n0 = tasc::sync::task(move |_| {
         let start = Instant::now();
         let res = sum(0, n0);
         println!(
@@ -55,7 +54,7 @@ fn global() -> Result<(), Box<dyn std::error::Error>> {
         );
         res
     });
-    let sum_0_to_n1 = tasc::blocking::task(move |_| {
+    let sum_0_to_n1 = tasc::sync::task(move |_| {
         let start = Instant::now();
         let res = sum(0, n1);
         println!(
@@ -64,7 +63,7 @@ fn global() -> Result<(), Box<dyn std::error::Error>> {
         );
         res
     });
-    let sum_0_to_n2 = tasc::blocking::task(move |_| {
+    let sum_0_to_n2 = tasc::sync::task(move |_| {
         let start = Instant::now();
         let res = sum(0, n2);
         println!(
@@ -73,10 +72,9 @@ fn global() -> Result<(), Box<dyn std::error::Error>> {
         );
         res
     });
-    let sum: tasc::error::Result<u64> = tasc::blocking::task(|_| {
-        Ok(sum_0_to_n2.wait()? + sum_0_to_n1.wait()? + sum_0_to_n0.wait()?)
-    })
-    .wait()?;
+    let sum: tasc::error::Result<u64> =
+        tasc::sync::task(|_| Ok(sum_0_to_n2.wait()? + sum_0_to_n1.wait()? + sum_0_to_n0.wait()?))
+            .wait()?;
     let sum = sum?;
     println!("sum: {sum}");
     assert_eq!(
@@ -91,8 +89,8 @@ fn global() -> Result<(), Box<dyn std::error::Error>> {
 fn local() -> Result<(), Box<dyn std::error::Error>> {
     type TaskBuilder<'a> = tasc::TaskBuilder<'a, tasc::StdContext, tasc::StdSignal>;
 
-    let ctx = tasc::StdContext::new_blocking(100);
-    let task0 = TaskBuilder::from_ctx(&ctx).spawn_blocking(|_id| {
+    let ctx = tasc::StdContext::new(100);
+    let task0 = TaskBuilder::from_ctx(&ctx).spawn_sync(|_id| {
         println!("task0");
         std::thread::sleep(Duration::from_secs(3));
         let mut i = 0u128;
@@ -103,7 +101,7 @@ fn local() -> Result<(), Box<dyn std::error::Error>> {
         println!("task 0 finished");
         i
     });
-    let task1 = TaskBuilder::from_ctx(&ctx).spawn_blocking(|_id| {
+    let task1 = TaskBuilder::from_ctx(&ctx).spawn_sync(|_id| {
         println!("task1");
         let mut i = 0u128;
         #[allow(clippy::unit_arg)]
@@ -113,7 +111,7 @@ fn local() -> Result<(), Box<dyn std::error::Error>> {
         println!("task 1 finished");
         i
     });
-    let task2 = TaskBuilder::from_ctx(&ctx).spawn_blocking(|_id| {
+    let task2 = TaskBuilder::from_ctx(&ctx).spawn_sync(|_id| {
         println!("task2");
         let mut i = 0u128;
         #[allow(clippy::unit_arg)]

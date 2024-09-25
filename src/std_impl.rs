@@ -132,25 +132,20 @@ pub struct Context {
 
 impl Context {
     #[allow(missing_docs)]
-    pub async fn new(handlers: usize) -> Self {
+    pub fn new(handlers: usize) -> Self {
         let this = Self {
             inner: RwLock::new(ContextInner {
                 handlers: std::vec![],
                 wait_queue: WaitQueue::new(),
             }),
         };
-        this.set_workers(handlers).await;
+        this.set_workers(handlers);
         this
-    }
-
-    #[allow(missing_docs)]
-    pub fn new_blocking(handlers: usize) -> Self {
-        crate::signal::block_on_signal(Signal::new(), Self::new(handlers))
     }
 }
 
 impl crate::TaskContext for Context {
-    async fn set_workers(&self, max: usize) {
+    fn set_workers(&self, max: usize) {
         self.inner.write().unwrap().set_limit(max)
     }
 
@@ -158,7 +153,7 @@ impl crate::TaskContext for Context {
         self.inner.read().unwrap().handlers.len()
     }
 
-    async fn create_task(&self, f: com::TaskFn) -> com::ComHandle {
+    fn create_task(&self, f: com::TaskFn) -> com::ComHandle {
         self.inner.read().unwrap().create_task(f)
     }
 }

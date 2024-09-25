@@ -6,8 +6,6 @@ use std::{
     time::Instant,
 };
 
-use tasc::BlockingTaskHandle;
-
 const EXPENSE: u64 = 1_000_000_000;
 
 #[inline(never)]
@@ -141,7 +139,7 @@ fn main() {
 fn perform_tasks(workers: usize, work: usize) -> (f64, f64) {
     println!("workers: {workers}, work: {work}");
 
-    let ctx = tasc::StdContext::new_blocking(workers);
+    let ctx = tasc::StdContext::new(workers);
     let start = Arc::new(AtomicBool::new(false));
 
     let mut handlers = Vec::with_capacity(workers);
@@ -152,20 +150,18 @@ fn perform_tasks(workers: usize, work: usize) -> (f64, f64) {
         let worker_load = work_per_worker + if remainder > 0 { 1 } else { 0 };
         let start = start.clone();
         handlers.push(
-            tasc::TaskBuilder::<_, tasc::global::Signal>::from_ctx(&ctx).spawn_blocking(
-                move |_| {
-                    while !start.load(Ordering::Acquire) {
-                        // we want it to busy wait
-                        std::hint::black_box(())
-                    }
-                    let start = Instant::now();
-                    for _ in 0..worker_load {
-                        #[allow(clippy::unit_arg)]
-                        std::hint::black_box(expensive());
-                    }
-                    Instant::now() - start
-                },
-            ),
+            tasc::TaskBuilder::<_, tasc::global::Signal>::from_ctx(&ctx).spawn_sync(move |_| {
+                while !start.load(Ordering::Acquire) {
+                    // we want it to busy wait
+                    std::hint::black_box(())
+                }
+                let start = Instant::now();
+                for _ in 0..worker_load {
+                    #[allow(clippy::unit_arg)]
+                    std::hint::black_box(expensive());
+                }
+                Instant::now() - start
+            }),
         );
         remainder = remainder.saturating_sub(1);
     }

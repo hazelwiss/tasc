@@ -6,23 +6,20 @@ pub type Signal = std_impl::Signal;
 
 static INITIAL_WORKERS: AtomicUsize = AtomicUsize::new(0);
 
-/// The global context, which is used in `[ThreadBuilder::default]`, `[tasc::task]`, `[tasc::scope]`, `[tasc::blocking::task]` and `[tasc::blocking::scope]`.
+/// The global context, which is used in `[ThreadBuilder::default]`, `[tasc::task]`, `[tasc::scope]`, `[tasc::sync::task]` and `[tasc::sync::scope]`.
 pub struct GlobalContext {
     imp: std_impl::Context,
 }
 
 static GLOBAL: spin::Lazy<GlobalContext> = spin::Lazy::new(|| GlobalContext {
-    imp: crate::signal::block_on_signal(
-        Signal::new(),
-        std_impl::Context::new({
-            let workers = INITIAL_WORKERS.load(Ordering::Acquire);
-            if workers == 0 {
-                num_cpus::get()
-            } else {
-                workers
-            }
-        }),
-    ),
+    imp: std_impl::Context::new({
+        let workers = INITIAL_WORKERS.load(Ordering::Acquire);
+        if workers == 0 {
+            num_cpus::get()
+        } else {
+            workers
+        }
+    }),
 });
 
 /// Only works if called before anything uses the Global context.
@@ -47,15 +44,15 @@ impl GlobalContext {
 }
 
 impl crate::TaskContext for GlobalContext {
-    async fn set_workers(&self, max: usize) {
-        self.imp.set_workers(max).await
+    fn set_workers(&self, max: usize) {
+        self.imp.set_workers(max)
     }
 
     fn workers(&self) -> usize {
         self.imp.workers()
     }
 
-    async fn create_task(&self, f: com::TaskFn) -> com::ComHandle {
-        self.imp.create_task(f).await
+    fn create_task(&self, f: com::TaskFn) -> com::ComHandle {
+        self.imp.create_task(f)
     }
 }

@@ -1,10 +1,10 @@
 [package]
 name = "tasc"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 license-file = "LICENSE"
 readme = "README.md"
-repository = "https://github.com/Kim-Dewelski/tascc"
+repository = "https://github.com/Kim-Dewelski/tasc"
 documentation = "https://docs.rs/tasc/latest/tasc"
 keywords = ["async", "no-std", "threads", "minimal"]
 categories = ["no-std", "asynchronous"]
