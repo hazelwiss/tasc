@@ -247,9 +247,7 @@ pub mod handles {
         }
     }
 
-    impl<'a, T: Unpin + Send + 'static, S: Signal> core::future::Future
-        for AsyncScopedHandle<'a, T, S>
-    {
+    impl<T: Unpin + Send + 'static, S: Signal> core::future::Future for AsyncScopedHandle<'_, T, S> {
         type Output = Result<T>;
 
         fn poll(
@@ -269,7 +267,7 @@ pub mod handles {
         }
     }
 
-    impl<'a, T: Send + 'static, S: Signal> Drop for AsyncScopedHandle<'a, T, S> {
+    impl<T: Send + 'static, S: Signal> Drop for AsyncScopedHandle<'_, T, S> {
         fn drop(&mut self) {
             unsafe {
                 let (com, signal) = ManuallyDrop::take(&mut self.handle).decompose();
@@ -285,7 +283,7 @@ pub mod handles {
         _mark: PhantomData<&'a ()>,
     }
 
-    impl<'a, T: Send + 'static, S: Signal> SyncScopedHandle<'a, T, S> {
+    impl<T: Send + 'static, S: Signal> SyncScopedHandle<'_, T, S> {
         pub(crate) fn new(handle: com::ComHandle, signal: S) -> Self {
             Self {
                 handle: ManuallyDrop::new(InnerHandle::new(handle, signal)),
@@ -314,7 +312,7 @@ pub mod handles {
         }
     }
 
-    impl<'a, T: Send + 'static, S: Signal> Drop for SyncScopedHandle<'a, T, S> {
+    impl<T: Send + 'static, S: Signal> Drop for SyncScopedHandle<'_, T, S> {
         fn drop(&mut self) {
             unsafe {
                 let (com, signal) = ManuallyDrop::take(&mut self.handle).decompose();

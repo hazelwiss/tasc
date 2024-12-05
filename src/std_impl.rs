@@ -1,6 +1,13 @@
-use core::mem::ManuallyDrop;
+use core::{
+    mem::ManuallyDrop,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 use crossbeam_channel as channel;
-use std::{eprintln, sync::RwLock, vec::Vec};
+use std::{
+    eprintln,
+    sync::{Arc, RwLock},
+    vec::Vec,
+};
 
 use crate::{
     com::{self, WorkerId},
@@ -37,6 +44,7 @@ enum WorkerMsg {
 }
 
 struct Worker {
+    stack_size: Arc<AtomicUsize>,
     incoming_msgs: channel::Receiver<WorkerMsg>,
     wait_queue: WaitQueueSubscriber,
     id: WorkerId,
@@ -47,16 +55,25 @@ impl Worker {
     fn start(self) {
         loop {
             match std::panic::catch_unwind(|| loop {
-                self.wait_queue.send(self.id).unwrap();
-                match self.incoming_msgs.recv().unwrap() {
-                    WorkerMsg::Stop => return,
-                    WorkerMsg::Task { f, handle } => {
-                        let res = crate::signal::block_on_signal_arc(
-                            self.signal.clone(),
-                            alloc::boxed::Box::into_pin(f),
-                        );
-                        handle.finish_job(res);
+                let stack_size = self.stack_size.load(Ordering::Relaxed);
+                let stop = stacker::grow(stack_size, || loop {
+                    if stack_size != self.stack_size.load(Ordering::Relaxed) {
+                        return false;
                     }
+                    self.wait_queue.send(self.id).unwrap();
+                    match self.incoming_msgs.recv().unwrap() {
+                        WorkerMsg::Stop => return true,
+                        WorkerMsg::Task { f, handle } => {
+                            let res = crate::signal::block_on_signal_arc(
+                                self.signal.clone(),
+                                alloc::boxed::Box::into_pin(f),
+                            );
+                            handle.finish_job(res);
+                        }
+                    }
+                });
+                if stop {
+                    return;
                 }
             }) {
                 Ok(_) => break,
@@ -74,6 +91,7 @@ struct WorkerCom {
 }
 
 struct ContextInner {
+    stack_size: Arc<AtomicUsize>,
     handlers: Vec<WorkerCom>,
     wait_queue: WaitQueue,
 }
@@ -96,6 +114,7 @@ impl ContextInner {
             let wait_queue = self.wait_queue.creater_subscriber();
             let id = WorkerId::new(i);
             let worker = Worker {
+                stack_size: self.stack_size.clone(),
                 incoming_msgs: receiver,
                 id,
                 wait_queue,
@@ -140,6 +159,8 @@ impl Context {
     pub fn new(handlers: usize) -> Self {
         let this = Self {
             inner: RwLock::new(ContextInner {
+                // 1 MiB is the default stack size per worker.
+                stack_size: Arc::new(AtomicUsize::new(1024 * 1024)),
                 handlers: std::vec![],
                 wait_queue: WaitQueue::new(),
             }),
@@ -152,6 +173,14 @@ impl Context {
 impl crate::TaskContext for Context {
     fn set_workers(&self, max: usize) {
         self.inner.write().unwrap().set_limit(max)
+    }
+
+    fn set_worker_stack_size(&self, stack_size: usize) {
+        self.inner
+            .read()
+            .unwrap()
+            .stack_size
+            .store(stack_size, Ordering::SeqCst);
     }
 
     fn workers(&self) -> usize {

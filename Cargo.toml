@@ -1,6 +1,6 @@
 [package]
 name = "tasc"
-version = "0.3.3"
+version = "0.4.0"
 edition = "2021"
 license-file = "LICENSE"
 readme = "README.md"
@@ -13,7 +13,7 @@ description = "A minimnal, asynchronous threadpool"
 [features]
 default = ["std", "global"]
 
-std = ["dep:crossbeam-channel"]
+std = ["dep:crossbeam-channel", "dep:stacker"]
 global = ["std"]
 
 [dependencies]
@@ -22,6 +22,7 @@ num_cpus = "0.2"
 
 # STD feature
 crossbeam-channel = { version = "0.5.13", optional = true }
+stacker = { version = "0.1.17", optional = true }
 
 [dev-dependencies]
 pollster = "0.3.0"

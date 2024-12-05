@@ -9,6 +9,9 @@ pub trait TaskContext {
     /// If you set the limit, then set it again to a lower limit, the limit will not change.
     fn set_workers(&self, max: usize);
 
+    /// Sets the amount of available stack size per worker.
+    fn set_worker_stack_size(&self, stack_size: usize);
+
     /// Gets the current amount of workers used by the context.
     fn workers(&self) -> usize;
 

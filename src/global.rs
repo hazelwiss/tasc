@@ -48,6 +48,10 @@ impl crate::TaskContext for GlobalContext {
         self.imp.set_workers(max)
     }
 
+    fn set_worker_stack_size(&self, stack_size: usize) {
+        self.imp.set_worker_stack_size(stack_size);
+    }
+
     fn workers(&self) -> usize {
         self.imp.workers()
     }
