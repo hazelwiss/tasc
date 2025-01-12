@@ -28,7 +28,11 @@ impl Worker {
                     if !self.keep_running.load(Ordering::Acquire) {
                         return true;
                     }
-                    let Task { f, handle } = self.task_pool.recv().unwrap();
+                    let Task { f, handle } = match self.task_pool.recv() {
+                        Ok(ok) => ok,
+                        // The channel was disconnected.
+                        Err(_) => return true,
+                    };
                     let res = crate::signal::block_on_signal_arc(
                         self.signal.clone(),
                         alloc::boxed::Box::into_pin(f),
