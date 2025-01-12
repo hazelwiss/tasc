@@ -1,4 +1,4 @@
-use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering};
 use crossbeam_channel as channel;
 use std::{eprintln, sync::Arc};
 
@@ -12,7 +12,6 @@ struct Task {
 struct Worker {
     stack_size: Arc<AtomicUsize>,
     task_pool: channel::Receiver<Task>,
-    keep_running: Arc<AtomicBool>,
     signal: alloc::sync::Arc<Signal>,
 }
 
@@ -25,12 +24,9 @@ impl Worker {
                     if stack_size != self.stack_size.load(Ordering::Relaxed) {
                         return false;
                     }
-                    if !self.keep_running.load(Ordering::Acquire) {
-                        return true;
-                    }
                     let Task { f, handle } = match self.task_pool.recv() {
                         Ok(ok) => ok,
-                        // The channel was disconnected.
+                        // The channel was disconnected, stop running the worker.
                         Err(_) => return true,
                     };
                     let res = crate::signal::block_on_signal_arc(
@@ -51,7 +47,6 @@ impl Worker {
 }
 
 struct ContextInner {
-    keep_running: Arc<AtomicBool>,
     stack_size: Arc<AtomicUsize>,
     task_pool: crossbeam_channel::Sender<Task>,
     task_pool_recv: crossbeam_channel::Receiver<Task>,
@@ -67,7 +62,6 @@ impl ContextInner {
         self.handlers.store(limit, Ordering::Release);
         for i in current..limit {
             let worker = Worker {
-                keep_running: self.keep_running.clone(),
                 stack_size: self.stack_size.clone(),
                 task_pool: self.task_pool_recv.clone(),
                 signal: alloc::sync::Arc::new(Signal::new()),
@@ -107,7 +101,6 @@ impl Context {
             inner: ContextInner {
                 // 1 MiB is the default stack size per worker.
                 stack_size: Arc::new(AtomicUsize::new(1024 * 1024)),
-                keep_running: Arc::new(AtomicBool::new(true)),
                 task_pool,
                 task_pool_recv,
                 handlers: AtomicUsize::new(0),
@@ -138,12 +131,6 @@ impl crate::TaskContext for Context {
 
     fn create_task(&self, f: com::TaskFut) -> com::ComHandle {
         self.inner.create_task(f)
-    }
-}
-
-impl Drop for Context {
-    fn drop(&mut self) {
-        self.inner.keep_running.store(false, Ordering::Release);
     }
 }
 

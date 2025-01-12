@@ -114,7 +114,7 @@ dependencies = [
 
 [[package]]
 name = "tasc"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "crossbeam-channel",
  "num_cpus",
