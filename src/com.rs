@@ -6,28 +6,6 @@ use spin::Mutex;
 
 use crate::{error, signal, Signal};
 
-/// Uniquely identifies a Worker Thread.
-#[derive(Clone, Copy, Debug)]
-pub struct WorkerId(usize);
-
-impl WorkerId {
-    /// Creates a Worker ID. Must be unique for the context.
-    pub fn new(id: usize) -> Self {
-        Self(id)
-    }
-
-    #[allow(missing_docs)]
-    pub fn id(self) -> usize {
-        self.0
-    }
-}
-
-impl core::fmt::Display for WorkerId {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        core::fmt::Display::fmt(&self.0, f)
-    }
-}
-
 #[allow(missing_docs)]
 pub type TaskFut = Box<dyn Future<Output = Box<dyn core::any::Any + Send + 'static>> + Send>;
 
@@ -37,7 +15,6 @@ struct ConnectionState {
 
 /// The handle for an ongoing job. This is used by the context to provide a result to a given task.
 pub struct JobHandle {
-    id: WorkerId,
     connection: Arc<ConnectionState>,
 }
 
@@ -47,18 +24,11 @@ impl JobHandle {
         let connection = &self.connection;
         *connection.result.lock() = Some(result);
     }
-
-    #[allow(missing_docs)]
-    pub fn worker_id(&self) -> WorkerId {
-        self.id
-    }
 }
 
 /// Used to maintain communications with the [`JobHandle`] and see the status of the ongoing task.
 /// Once the result is available, we retrive it from this type. This type is a future, and can be awaited.
 pub struct ComHandle {
-    #[allow(unused)]
-    id: WorkerId,
     connection: Arc<ConnectionState>,
 }
 
@@ -99,17 +69,15 @@ impl core::future::Future for ComHandle {
 
 /// A utility function for contexts to create handles.
 /// Every worker must have a unique ID.
-pub fn new_job_handles(id: WorkerId) -> (JobHandle, ComHandle) {
+pub fn new_job_handles() -> (JobHandle, ComHandle) {
     let state = Arc::new(ConnectionState {
         result: Mutex::new(None),
     });
 
     let job_handle = JobHandle {
-        id,
         connection: state.clone(),
     };
     let handle = ComHandle {
-        id,
         connection: state.clone(),
     };
     (job_handle, handle)

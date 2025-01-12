@@ -1,53 +1,18 @@
-use core::{
-    mem::ManuallyDrop,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use crossbeam_channel as channel;
-use std::{
-    eprintln,
-    sync::{Arc, RwLock},
-    vec::Vec,
-};
+use std::{eprintln, sync::Arc};
 
-use crate::{
-    com::{self, WorkerId},
-    TaskContext,
-};
+use crate::{com, TaskContext};
 
-type WaitQueueSubscriber = channel::Sender<WorkerId>;
-
-struct WaitQueue {
-    receiver: channel::Receiver<WorkerId>,
-    subscriber_creator: WaitQueueSubscriber,
-}
-
-impl WaitQueue {
-    fn new() -> Self {
-        let (sender, receiver) = channel::unbounded();
-        Self {
-            receiver,
-            subscriber_creator: sender,
-        }
-    }
-
-    fn creater_subscriber(&self) -> WaitQueueSubscriber {
-        self.subscriber_creator.clone()
-    }
-}
-
-enum WorkerMsg {
-    Stop,
-    Task {
-        f: com::TaskFut,
-        handle: com::JobHandle,
-    },
+struct Task {
+    f: com::TaskFut,
+    handle: com::JobHandle,
 }
 
 struct Worker {
     stack_size: Arc<AtomicUsize>,
-    incoming_msgs: channel::Receiver<WorkerMsg>,
-    wait_queue: WaitQueueSubscriber,
-    id: WorkerId,
+    task_pool: channel::Receiver<Task>,
+    keep_running: Arc<AtomicBool>,
     signal: alloc::sync::Arc<Signal>,
 }
 
@@ -60,17 +25,15 @@ impl Worker {
                     if stack_size != self.stack_size.load(Ordering::Relaxed) {
                         return false;
                     }
-                    self.wait_queue.send(self.id).unwrap();
-                    match self.incoming_msgs.recv().unwrap() {
-                        WorkerMsg::Stop => return true,
-                        WorkerMsg::Task { f, handle } => {
-                            let res = crate::signal::block_on_signal_arc(
-                                self.signal.clone(),
-                                alloc::boxed::Box::into_pin(f),
-                            );
-                            handle.finish_job(res);
-                        }
+                    if !self.keep_running.load(Ordering::Acquire) {
+                        return true;
                     }
+                    let Task { f, handle } = self.task_pool.recv().unwrap();
+                    let res = crate::signal::block_on_signal_arc(
+                        self.signal.clone(),
+                        alloc::boxed::Box::into_pin(f),
+                    );
+                    handle.finish_job(res);
                 });
                 if stop {
                     return;
@@ -83,65 +46,43 @@ impl Worker {
     }
 }
 
-struct WorkerCom {
-    thread: ManuallyDrop<std::thread::JoinHandle<()>>,
-    channel: channel::Sender<WorkerMsg>,
-    #[allow(unused)]
-    id: WorkerId,
-}
-
 struct ContextInner {
+    keep_running: Arc<AtomicBool>,
     stack_size: Arc<AtomicUsize>,
-    handlers: Vec<WorkerCom>,
-    wait_queue: WaitQueue,
+    task_pool: crossbeam_channel::Sender<Task>,
+    task_pool_recv: crossbeam_channel::Receiver<Task>,
+    handlers: AtomicUsize,
 }
 
 impl ContextInner {
-    fn find_ready_worker_id(&self) -> WorkerId {
-        self.wait_queue.receiver.recv().unwrap()
-    }
-
-    fn send_msg(&self, worker_id: WorkerId, msg: WorkerMsg) {
-        self.handlers[worker_id.id()].channel.send(msg).unwrap();
-    }
-
-    fn set_limit(&mut self, limit: usize) {
-        if self.handlers.len() >= limit {
+    fn set_limit(&self, limit: usize) {
+        let current = self.handlers.load(Ordering::Acquire);
+        if current >= limit {
             return;
         }
-        for i in self.handlers.len()..limit {
-            let (sender, receiver) = channel::unbounded();
-            let wait_queue = self.wait_queue.creater_subscriber();
-            let id = WorkerId::new(i);
+        self.handlers.store(limit, Ordering::Release);
+        for i in current..limit {
             let worker = Worker {
+                keep_running: self.keep_running.clone(),
                 stack_size: self.stack_size.clone(),
-                incoming_msgs: receiver,
-                id,
-                wait_queue,
+                task_pool: self.task_pool_recv.clone(),
                 signal: alloc::sync::Arc::new(Signal::new()),
             };
-            let worker_thread = std::thread::Builder::new()
+            std::thread::Builder::new()
                 .name(std::format!("tasc worker #{i}"))
                 .spawn(move || worker.start())
                 .unwrap_or_else(|e| panic!("failed to create thread for worker pool: {e}"));
-            self.handlers.push(WorkerCom {
-                thread: ManuallyDrop::new(worker_thread),
-                channel: sender,
-                id,
-            });
         }
     }
 
     fn create_task(&self, f: com::TaskFut) -> com::ComHandle {
-        let worker_id = self.find_ready_worker_id();
-        let (job_handle, handle) = com::new_job_handles(worker_id);
-        self.send_msg(
-            worker_id,
-            WorkerMsg::Task {
+        let (job_handle, handle) = com::new_job_handles();
+        self.task_pool
+            .send(Task {
                 f,
                 handle: job_handle,
-            },
-        );
+            })
+            .expect("failed to register task to task pool");
         handle
     }
 }
@@ -151,60 +92,54 @@ impl ContextInner {
 /// This context facilitates creating new tasks and effectively dividing them among workers via a wait queue.
 /// Creating new threads uses the Rust standard library [`std::thread::spawn`] with its default settings.
 pub struct Context {
-    inner: RwLock<ContextInner>,
+    inner: ContextInner,
 }
 
 impl Context {
     #[allow(missing_docs)]
     pub fn new(handlers: usize) -> Self {
+        let (task_pool, task_pool_recv) = crossbeam_channel::unbounded();
         let this = Self {
-            inner: RwLock::new(ContextInner {
+            inner: ContextInner {
                 // 1 MiB is the default stack size per worker.
                 stack_size: Arc::new(AtomicUsize::new(1024 * 1024)),
-                handlers: std::vec![],
-                wait_queue: WaitQueue::new(),
-            }),
+                keep_running: Arc::new(AtomicBool::new(true)),
+                task_pool,
+                task_pool_recv,
+                handlers: AtomicUsize::new(0),
+            },
         };
         this.set_workers(handlers);
         this
+    }
+
+    #[allow(missing_docs)]
+    pub fn task(&self) -> super::TaskBuilder<'_, Self, Signal> {
+        super::TaskBuilder::from_ctx(self)
     }
 }
 
 impl crate::TaskContext for Context {
     fn set_workers(&self, max: usize) {
-        self.inner.write().unwrap().set_limit(max)
+        self.inner.set_limit(max)
     }
 
     fn set_worker_stack_size(&self, stack_size: usize) {
-        self.inner
-            .read()
-            .unwrap()
-            .stack_size
-            .store(stack_size, Ordering::SeqCst);
+        self.inner.stack_size.store(stack_size, Ordering::SeqCst);
     }
 
     fn workers(&self) -> usize {
-        self.inner.read().unwrap().handlers.len()
+        self.inner.handlers.load(Ordering::Acquire)
     }
 
     fn create_task(&self, f: com::TaskFut) -> com::ComHandle {
-        self.inner.read().unwrap().create_task(f)
+        self.inner.create_task(f)
     }
 }
 
 impl Drop for Context {
     fn drop(&mut self) {
-        let mut write = self.inner.write().unwrap();
-        for handle in &write.handlers {
-            handle.channel.send(WorkerMsg::Stop).unwrap();
-        }
-        for handle in &mut write.handlers {
-            unsafe {
-                ManuallyDrop::take(&mut handle.thread)
-                    .join()
-                    .expect("failed to join thread");
-            };
-        }
+        self.inner.keep_running.store(false, Ordering::Release);
     }
 }
 
@@ -317,3 +252,43 @@ mod signal {
 }
 
 pub use signal::Signal;
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn single_task() {
+        let ctx = Context::new(1);
+
+        let ticked_value = AtomicUsize::new(0);
+
+        let t0 = ctx
+            .task()
+            .spawn_scoped_sync(|| ticked_value.fetch_add(1, Ordering::SeqCst));
+
+        let t1 = ctx
+            .task()
+            .spawn_scoped_sync(|| ticked_value.fetch_add(1, Ordering::SeqCst));
+
+        let t2 = ctx
+            .task()
+            .spawn_scoped_sync(|| ticked_value.fetch_add(1, Ordering::SeqCst));
+
+        let t3 = ctx
+            .task()
+            .spawn_scoped_sync(|| ticked_value.fetch_add(1, Ordering::SeqCst));
+
+        let t4 = ctx
+            .task()
+            .spawn_scoped_sync(|| ticked_value.fetch_add(1, Ordering::SeqCst));
+
+        t0.wait().unwrap();
+        t1.wait().unwrap();
+        t2.wait().unwrap();
+        t3.wait().unwrap();
+        t4.wait().unwrap();
+
+        assert_eq!(ticked_value.load(Ordering::SeqCst), 5);
+    }
+}
